@@ -107,7 +107,8 @@ def make_fs_write_tool(workspace: Path | None = None) -> Tool:
 
 
 def make_shell_tool(allow: Optional[List[str]] = None) -> Tool:
-    allow = allow or ["echo", "ls"]
+    # Ensure a non-optional allowlist for type-checkers
+    allowed: List[str] = allow or ["echo", "ls"]
 
     def handler(args: Dict[str, Any], state: ConversationState) -> Dict[str, Any]:
         import shlex
@@ -117,7 +118,7 @@ def make_shell_tool(allow: Optional[List[str]] = None) -> Tool:
         if not cmd:
             return {"ok": False, "error": "缺少 cmd"}
         prog = shlex.split(cmd)[0]
-        if prog not in allow:
+        if prog not in allowed:
             return {"ok": False, "error": f"命令不在允许列表：{prog}"}
         try:
             out = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
