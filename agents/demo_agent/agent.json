@@ -1,0 +1,8 @@
+{
+  "name": "demo_agent",
+  "description": "示例 Agent",
+  "tools": [
+    "todo",
+    "fs"
+  ]
+}

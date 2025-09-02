@@ -1,0 +1,12 @@
+# Env / tooling
+.venv/
+__pycache__/
+*.pyc
+
+# Runtime traces
+runs/
+
+# Editors
+.DS_Store
+.idea/
+.vscode/

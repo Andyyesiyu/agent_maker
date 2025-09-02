@@ -1,0 +1,20 @@
+[project]
+name = "agent-maker"
+version = "0.1.0"
+description = "Agent Maker: scaffolding and core for LLM agents"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Agent Maker" },
+]
+keywords = ["llm", "agent", "scaffold", "cli"]
+dependencies = []
+
+[project.optional-dependencies]
+openai = [
+  "openai>=1.40.0",
+]
+
+# We use uv strictly for environment + dependency management (no build backend required)
+[tool.uv]
+package = false
