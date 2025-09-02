@@ -17,11 +17,14 @@ class Message:
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
+Status = Literal["pending", "in_progress", "done"]
+
+
 @dataclass
 class PlanItem:
     id: str
     text: str
-    status: Literal["pending", "in_progress", "done"] = "pending"
+    status: Status = "pending"
 
 
 @dataclass
@@ -34,7 +37,7 @@ class Plan:
         self.items.append(item)
         return item
 
-    def mark(self, item_id: str, status: PlanItem["status"].__args__):  # type: ignore[attr-defined]
+    def mark(self, item_id: str, status: Status) -> bool:
         for it in self.items:
             if it.id == item_id:
                 it.status = status
@@ -73,4 +76,3 @@ class ConversationState:
 
     def to_trace_jsonl(self) -> str:
         return "\n".join(json.dumps(vars(e), ensure_ascii=False) for e in self.trace)
-
