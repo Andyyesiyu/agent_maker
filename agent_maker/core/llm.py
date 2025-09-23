@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import os
 from dataclasses import dataclass
@@ -53,14 +54,17 @@ class OpenAIProvider(ProviderBase):
     model: str = "gpt-4o-mini"
     temperature: float = 0.2
 
-    def _client(self):  # lazy import; no hard dep if unused
+    def _client(self) -> Any:  # lazy import; no hard dep if unused
         try:
-            import openai  # type: ignore
+            openai_mod = importlib.import_module("openai")
         except Exception as e:  # pragma: no cover - env dependent
             raise RuntimeError(
                 "OpenAI SDK 未安装。请先 `pip install openai` 或改用 --provider dummy"
             ) from e
-        client = openai.OpenAI(api_key=self.api_key or os.environ.get("OPENAI_API_KEY"))
+        client_factory = getattr(openai_mod, "OpenAI", None)
+        if client_factory is None:
+            raise RuntimeError("OpenAI SDK 缺少 OpenAI 客户端实现")
+        client = client_factory(api_key=self.api_key or os.environ.get("OPENAI_API_KEY"))
         if self.base_url:
             client.base_url = self.base_url
         return client
@@ -77,4 +81,3 @@ class OpenAIProvider(ProviderBase):
             **extra,
         )
         return resp.choices[0].message.content or ""
-

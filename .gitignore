@@ -5,6 +5,7 @@ __pycache__/
 
 # Runtime traces
 runs/
+.env
 
 # Editors
 .DS_Store

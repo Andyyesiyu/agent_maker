@@ -1,15 +1,34 @@
 import argparse
 import json
 import os
+from collections.abc import Mapping as MappingABC, Sequence
 from pathlib import Path
-from typing import List
+from typing import Any, Callable, Dict, List, cast
 
 from .scaffold import scaffold_from_spec, quick_new
 from .spec import AgentSpec
-from .core.tools import list_builtin_tools
+from .core.tools import list_builtin_tools, build_tools_from_names
 from .core.llm import DummyProvider, OpenAIProvider, ProviderBase
 from .core.agent import Agent
 from .core.runner import AgentRunner
+
+
+Handler = Callable[[argparse.Namespace], None]
+
+
+def _get_handler(ns: argparse.Namespace) -> Handler:
+    func = getattr(ns, "func", None)
+    if not callable(func):  # pragma: no cover - defensive guard
+        raise ValueError("未找到可执行的子命令处理函数")
+    return cast(Handler, func)
+
+
+def _normalize_tool_names(raw: object, default: Sequence[str]) -> List[str]:
+    if raw is None:
+        return list(default)
+    if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
+        return [str(item) for item in raw]
+    return [str(raw)]
 
 
 def cmd_list_tools(_: argparse.Namespace) -> None:
@@ -63,16 +82,21 @@ def cmd_design(ns: argparse.Namespace) -> None:
     result = runner.run(task=prompt)
 
     try:
-        spec_obj = json.loads(result.output)
+        loaded = json.loads(result.output)
     except Exception:
-        # 回退：用最小可行 spec
-        spec_obj = {
+        loaded = None
+
+    spec_data: Dict[str, Any]
+    if isinstance(loaded, MappingABC):
+        spec_data = {str(k): v for k, v in loaded.items()}
+    else:
+        spec_data = {
             "name": ns.fallback_name or "auto_agent",
             "description": prompt,
             "tools": ["todo", "fs"],
         }
 
-    spec = AgentSpec.from_dict(spec_obj)
+    spec = AgentSpec.from_dict(spec_data)
     out.write_text(json.dumps(spec.to_dict(), ensure_ascii=False, indent=2))
     print(f"Design spec written: {out}")
 
@@ -85,7 +109,11 @@ def cmd_design(ns: argparse.Namespace) -> None:
 
 def cmd_scaffold(ns: argparse.Namespace) -> None:
     spec_path = Path(ns.spec)
-    spec = AgentSpec.from_dict(json.loads(spec_path.read_text()))
+    loaded = json.loads(spec_path.read_text())
+    if not isinstance(loaded, MappingABC):
+        raise ValueError("spec.json 必须是一个 JSON 对象")
+    spec_data: Dict[str, Any] = {str(k): v for k, v in loaded.items()}
+    spec = AgentSpec.from_dict(spec_data)
     dest = Path(ns.dest or f"agents/{spec.name}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     scaffold_from_spec(spec, dest)
@@ -95,9 +123,8 @@ def cmd_scaffold(ns: argparse.Namespace) -> None:
 def cmd_run(ns: argparse.Namespace) -> None:
     # 运行一个最小内置 Agent（无需脚手架），方便快速试用
     provider = _provider_from_ns(ns)
-    from .core.tools import build_tools_from_names
 
-    tools = build_tools_from_names(ns.tools or ["todo", "fs"])  # type: ignore[arg-type]
+    tools = build_tools_from_names(_normalize_tool_names(getattr(ns, "tools", None), ["todo", "fs"]))
     agent = Agent(
         name="InlineAgent",
         system_prompt=(
@@ -155,9 +182,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: List[str] | None = None) -> None:
     p = build_parser()
     ns = p.parse_args(argv)
-    ns.func(ns)  # type: ignore[misc]
+    handler = _get_handler(ns)
+    handler(ns)
 
 
 if __name__ == "__main__":
     main()
-

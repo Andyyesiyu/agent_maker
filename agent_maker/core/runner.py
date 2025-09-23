@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .agent import Agent
+from .config import Config
 
 
 @dataclass
@@ -15,16 +16,20 @@ class RunResult:
 
 
 class AgentRunner:
-    def __init__(self, agent: Agent, max_steps: int = 6, run_dir: str | None = None) -> None:
+    def __init__(self, agent: Agent, max_steps: int = 6, run_dir: str | None = None, config: Config | None = None) -> None:
         self.agent = agent
         self.max_steps = max_steps
         self.run_dir = Path(run_dir or "runs")
         self.run_dir.mkdir(parents=True, exist_ok=True)
+        self.config = config or Config.from_env()
 
     def _dump_trace(self, run_id: str) -> None:
+        if not self.config.tracing_enabled:
+            return
         tdir = self.run_dir / run_id
         tdir.mkdir(parents=True, exist_ok=True)
-        (tdir / "trace.jsonl").write_text(self.agent.state.to_trace_jsonl(), encoding="utf-8")
+        redact = self.config.redactor()
+        (tdir / "trace.jsonl").write_text(self.agent.state.to_trace_jsonl(redact=redact), encoding="utf-8")
 
     def run(self, task: str) -> RunResult:
         from uuid import uuid4
@@ -40,4 +45,3 @@ class AgentRunner:
                 break
         self._dump_trace(run_id)
         return RunResult(output=output, steps=i + 1)
-

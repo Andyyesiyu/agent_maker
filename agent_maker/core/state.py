@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Callable
 
 
 Role = Literal["system", "user", "assistant", "tool"]
@@ -74,5 +74,20 @@ class ConversationState:
             for m in self.messages
         ]
 
-    def to_trace_jsonl(self) -> str:
-        return "\n".join(json.dumps(vars(e), ensure_ascii=False) for e in self.trace)
+    def to_trace_jsonl(self, redact: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None) -> str:
+        """Serialize trace to JSONL.
+
+        Optionally apply a redaction function that takes a trace event dict
+        and returns a sanitized dict before serialization.
+        """
+        out: List[str] = []
+        for e in self.trace:
+            data = vars(e)
+            if redact is not None:
+                try:
+                    data = redact(data)
+                except Exception:
+                    # Best-effort: if redactor fails, fall back to original
+                    data = vars(e)
+            out.append(json.dumps(data, ensure_ascii=False))
+        return "\n".join(out)

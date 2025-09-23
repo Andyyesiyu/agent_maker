@@ -44,6 +44,19 @@ This file provides agent-focused instructions: reliable setup, run/validate step
 - `shell` tool is allowlisted (default `echo`, `ls`). Modify with care.
 - Respect least privilege; don’t escalate unless the user asks. Keep external network calls minimal.
 
+## Environment and privacy
+- Env file: copy `.env.example` to `.env` (git-ignored). The CLI and demo agent auto-load it.
+- Core env vars:
+  - `AGENT_MAKER_PRIVACY`: `off` | `standard` | `strict` (default `standard`). Controls redaction in traces.
+  - `AGENT_MAKER_TRACE_ENABLED`: `true`/`false` (default `true`). Disables writing `runs/<id>/trace.jsonl` when false.
+  - `AGENT_MAKER_REDACT_PLACEHOLDER`: replacement for sensitive fields (default `***`).
+  - `AGENT_MAKER_MAX_VALUE_LEN`: truncate long values when not strict (default `2000`).
+  - `AGENT_MAKER_DOTENV`: custom dotenv path (default `.env`).
+- Redaction behavior:
+  - Sensitive keys like `api_key`, `token`, `password`, `secret` are redacted recursively.
+  - In `strict` mode: model outputs in traces are omitted; filesystem tool contents and patches are masked.
+  - In `standard` mode: large values are truncated; sensitive keys are still masked.
+
 ## Docker (optional)
 - Quick one-off run (host repo mounted):
   - `docker run --rm -it -v "$PWD":/app -w /app python:3.12-slim bash -lc 'apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* && curl -LsSf https://astral.sh/uv/install.sh | sh && ~/.local/bin/uv run python -m agent_maker.cli list-tools'`
